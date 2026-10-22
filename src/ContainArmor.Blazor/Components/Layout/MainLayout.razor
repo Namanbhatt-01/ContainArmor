@@ -1,0 +1,74 @@
+@inherits LayoutComponentBase
+@inject ContainArmorStateService State
+@implements IDisposable
+
+<div class="soc-layout">
+    <!-- Sidebar -->
+    <NavMenu />
+
+    <!-- Main Workspace -->
+    <div class="soc-main-content">
+        <!-- Top Tactical Status Bar -->
+        <header class="soc-topbar">
+            <div class="soc-topbar-left">
+                <span class="soc-badge soc-badge-neutral font-mono">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    </svg>
+                    Docker Engine: unix:///var/run/docker.sock
+                </span>
+                <span class="soc-badge soc-badge-cyan font-mono">
+                    Netfilter Subsystem: DOCKER-USER / FORWARD
+                </span>
+            </div>
+
+            <div class="soc-topbar-right">
+                <!-- Fleet Posture Badge -->
+                <div class="soc-posture-badge">
+                    <span class="posture-label">FLEET HEALTH</span>
+                    <span class="soc-badge @(State.Summary.OverallFleetScore >= 80 ? "soc-badge-secure" : State.Summary.OverallFleetScore >= 50 ? "soc-badge-high" : "soc-badge-critical")">
+                        SCORE: @State.Summary.OverallFleetScore/100 (@State.Summary.OverallRiskLevel.ToString().ToUpperInvariant())
+                    </span>
+                </div>
+
+                <!-- SignalR Real-Time Indicator -->
+                <div class="soc-signalr-status">
+                    <span class="led-pulse led-pulse-green"></span>
+                    <span class="signalr-text">SIGNALR ACTIVE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="soc-body-container">
+            @Body
+        </main>
+    </div>
+
+    <!-- Real-Time Threat Toast Notification -->
+    <AlertToast />
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += OnStateUpdated;
+        await State.InitializeAsync();
+    }
+
+    private void OnStateUpdated()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateUpdated;
+    }
+}

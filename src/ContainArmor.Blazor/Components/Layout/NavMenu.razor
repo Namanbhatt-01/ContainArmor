@@ -1,0 +1,119 @@
+@inject ContainArmorStateService State
+
+<div class="soc-sidebar">
+    <!-- Brand Header -->
+    <div class="soc-brand">
+        <div class="soc-brand-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="#06B6D4" fill="rgba(6, 182, 212, 0.15)"/>
+                <path d="M9 12l2 2 4-4" stroke="#06B6D4"/>
+            </svg>
+        </div>
+        <div class="soc-brand-text">
+            <span class="soc-brand-title">Contain<span class="text-cyan">Armor</span></span>
+            <span class="soc-brand-subtitle">Docker Policy Auditor</span>
+        </div>
+    </div>
+
+    <!-- Live Telemetry Pill -->
+    <div class="soc-telemetry-status">
+        <span class="led-pulse led-pulse-green"></span>
+        <div class="telemetry-text">
+            <span class="telemetry-label">Telemetry Engine</span>
+            <span class="telemetry-state">STREAMING LIVE</span>
+        </div>
+    </div>
+
+    <!-- Navigation Menu Links -->
+    <nav class="soc-nav">
+        <NavLink class="soc-nav-item" href="" Match="NavLinkMatch.All">
+            <span class="soc-nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+            </span>
+            <span class="soc-nav-title">SOC Dashboard</span>
+        </NavLink>
+
+        <NavLink class="soc-nav-item" href="network-topology">
+            <span class="soc-nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="6" cy="6" r="3"></circle>
+                    <circle cx="18" cy="18" r="3"></circle>
+                    <circle cx="18" cy="6" r="3"></circle>
+                    <path d="M6 9v12"></path>
+                    <path d="M9 6h6"></path>
+                    <path d="M9 18h6"></path>
+                </svg>
+            </span>
+            <span class="soc-nav-title">Intra-Bridge Matrix</span>
+            @if (State.Summary.ActiveIsolationBreachesCount > 0)
+            {
+                <span class="soc-pill-counter-danger">@State.Summary.ActiveIsolationBreachesCount</span>
+            }
+        </NavLink>
+
+        <NavLink class="soc-nav-item" href="security-audits">
+            <span class="soc-nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+            </span>
+            <span class="soc-nav-title">Container Audits</span>
+            @if (State.Summary.CriticalRiskContainers > 0)
+            {
+                <span class="soc-pill-counter-danger">@State.Summary.CriticalRiskContainers</span>
+            }
+        </NavLink>
+
+        <NavLink class="soc-nav-item" href="firewall-audit">
+            <span class="soc-nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+            </span>
+            <span class="soc-nav-title">Netfilter / IPTables</span>
+        </NavLink>
+
+        <NavLink class="soc-nav-item" href="threat-lab">
+            <span class="soc-nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </span>
+            <span class="soc-nav-title">Threat Demo Lab</span>
+        </NavLink>
+    </nav>
+
+    <!-- Audit Action Button in Sidebar -->
+    <div class="soc-sidebar-footer">
+        <button class="soc-btn-primary w-100 justify-content-center" @onclick="State.TriggerAuditAsync" disabled="@State.IsAuditing">
+            @if (State.IsAuditing)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span>Scanning...</span>
+            }
+            else
+            {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span>Rescan Fleet</span>
+            }
+        </button>
+        <div class="soc-version-tag">ContainArmor Engine v1.0.4</div>
+    </div>
+</div>

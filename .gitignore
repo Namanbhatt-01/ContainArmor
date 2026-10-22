@@ -1,0 +1,42 @@
+# .NET build artifacts
+bin/
+obj/
+*.user
+*.userosscache
+*.sln.docstates
+_ReSharper*/
+*.suo
+*.userpref
+*.ide
+*.swp
+
+# Visual Studio / VS Code
+.vscode/
+.vs/
+.idea/
+*.rsuser
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test & coverage results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Temporary logs & scratch
+*.log
+*.tmp
+tests/vulnerable-containers/.env
+
+# Local development certificates
+*.pfx
+*.p12
+*.pem

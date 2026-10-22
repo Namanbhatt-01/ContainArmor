@@ -1,0 +1,126 @@
+@inject ContainArmorStateService State
+
+@if (IsOpen)
+{
+    <div class="soc-modal-backdrop" @onclick="Close">
+        <div class="soc-modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header d-flex align-items-center justify-content-between p-3 border-bottom border-secondary">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="soc-badge soc-badge-critical">SECURITY REMEDIATION</span>
+                    <h5 class="m-0 text-white font-weight-bold">@ActionTitle</h5>
+                </div>
+                <button type="button" class="soc-btn-outline p-1" @onclick="Close">×</button>
+            </div>
+
+            <div class="modal-body p-4">
+                @if (ExecutionResult != null)
+                {
+                    <div class="alert @(ExecutionResult.Success ? "alert-success bg-opacity-10 text-success border-success" : "alert-danger bg-opacity-10 text-danger border-danger") mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <strong>@(ExecutionResult.Success ? "MITIGATION APPLIED SUCCESSFULLY" : "REMEDIATION FAILED")</strong>
+                        </div>
+                        <div>@ExecutionResult.Message</div>
+                        <div class="mt-2 font-mono small text-muted">@ExecutionResult.Details</div>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-secondary mb-3">
+                        ContainArmor is prepared to execute this micro-segmentation / runtime mitigation action against the target container.
+                    </p>
+
+                    <div class="soc-card mb-3 p-3">
+                        <div class="row g-2">
+                            <div class="col-4 text-muted small">Target Container:</div>
+                            <div class="col-8 text-white font-mono font-weight-bold">@ContainerName (@ContainerId[..Math.Min(12, ContainerId.Length)])</div>
+
+                            <div class="col-4 text-muted small">Mitigation Type:</div>
+                            <div class="col-8 text-cyan font-mono">@ActionType.ToUpperInvariant()</div>
+
+                            <div class="col-4 text-muted small">Security Threat:</div>
+                            <div class="col-8 text-danger font-mono">@Reason</div>
+
+                            @if (!string.IsNullOrEmpty(CustomRule))
+                            {
+                                <div class="col-4 text-muted small">IPTables Command:</div>
+                                <div class="col-8"><span class="soc-code">iptables -I DOCKER-USER -s @CustomRule -j DROP</span></div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="text-muted small mb-3">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1 text-warning">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        This will alter live network routing tables or suspend execution via the Docker API socket.
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top border-secondary">
+                <button type="button" class="soc-btn-outline" @onclick="Close">
+                    @(ExecutionResult != null ? "Dismiss" : "Cancel")
+                </button>
+                @if (ExecutionResult == null)
+                {
+                    <button type="button" class="soc-btn-danger" @onclick="ExecuteAsync" disabled="@IsExecuting">
+                        @if (IsExecuting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Enforcing Policy...</span>
+                        }
+                        else
+                        {
+                            <span>Confirm & Enforce Mitigation</span>
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    [Parameter] public string ContainerId { get; set; } = string.Empty;
+    [Parameter] public string ContainerName { get; set; } = string.Empty;
+    [Parameter] public string ActionType { get; set; } = "isolate_network";
+    [Parameter] public string ActionTitle { get; set; } = "Quarantine Container";
+    [Parameter] public string Reason { get; set; } = string.Empty;
+    [Parameter] public string CustomRule { get; set; } = string.Empty;
+
+    private bool IsExecuting { get; set; }
+    private RemediationResult? ExecutionResult { get; set; }
+
+    private async Task ExecuteAsync()
+    {
+        IsExecuting = true;
+        try
+        {
+            var req = new RemediationRequest
+            {
+                ContainerId = ContainerId,
+                Action = ActionType,
+                Reason = Reason,
+                CustomRule = CustomRule
+            };
+
+            ExecutionResult = await State.ExecuteRemediationAsync(req);
+        }
+        finally
+        {
+            IsExecuting = false;
+        }
+    }
+
+    private async Task Close()
+    {
+        ExecutionResult = null;
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+}

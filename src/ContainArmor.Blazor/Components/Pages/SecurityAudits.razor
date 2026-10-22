@@ -1,0 +1,394 @@
+@page "/security-audits"
+@inject ContainArmorStateService State
+@implements IDisposable
+
+<PageTitle>Container Security Audits | ContainArmor</PageTitle>
+
+<div class="security-audits-container">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="m-0 font-weight-bold text-white">Container Security & Breakout Policy Auditor</h2>
+                <span class="soc-badge soc-badge-cyan">CIS DOCKER BENCHMARK</span>
+            </div>
+            <p class="text-secondary small mb-0 mt-1">
+                Deep runtime inspection of Linux capabilities, sensitive bind mounts (/var/run/docker.sock), host namespaces, and privilege escalation vectors.
+            </p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button class="soc-btn-primary" @onclick="State.TriggerAuditAsync" disabled="@State.IsAuditing">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span>Rescan Containers</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters & Search Bar -->
+    <div class="soc-card p-3 mb-4">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-5">
+                <input type="text" class="form-control bg-dark text-white border-secondary small"
+                       placeholder="Search containers by name, ID, or image..."
+                       @bind="SearchQuery" @bind:event="oninput" />
+            </div>
+            <div class="col-md-7 d-flex justify-content-md-end gap-2 flex-wrap">
+                <button class="soc-btn-outline @(FilterSeverity == null ? "bg-dark text-white" : "")" @onclick="@(() => FilterSeverity = null)">
+                    All (@State.Containers.Count)
+                </button>
+                <button class="soc-btn-outline @(FilterSeverity == SeverityLevel.Critical ? "border-danger text-danger bg-dark" : "")" @onclick="@(() => FilterSeverity = SeverityLevel.Critical)">
+                    Critical (@State.Containers.Count(c => c.RiskLevel == SeverityLevel.Critical))
+                </button>
+                <button class="soc-btn-outline @(FilterSeverity == SeverityLevel.High ? "border-warning text-warning bg-dark" : "")" @onclick="@(() => FilterSeverity = SeverityLevel.High)">
+                    High (@State.Containers.Count(c => c.RiskLevel == SeverityLevel.High))
+                </button>
+                <button class="soc-btn-outline @(FilterSeverity == SeverityLevel.Low ? "border-success text-success bg-dark" : "")" @onclick="@(() => FilterSeverity = SeverityLevel.Low)">
+                    Hardened / Safe
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container Inventory Table -->
+    <div class="soc-card mb-4">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle mb-0" style="background: transparent;">
+                <thead>
+                    <tr class="text-muted small border-secondary">
+                        <th>CONTAINER</th>
+                        <th>RISK SCORE</th>
+                        <th>SECURITY FINDINGS</th>
+                        <th>MOUNTED SOCKETS & VOLUMES</th>
+                        <th>PRIVILEGES & NAMESPACES</th>
+                        <th class="text-end">AUDIT & ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        var filtered = State.Containers
+                            .Where(c => string.IsNullOrEmpty(SearchQuery) || c.CleanName.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) || c.Image.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase))
+                            .Where(c => FilterSeverity == null || c.RiskLevel == FilterSeverity)
+                            .ToList();
+                    }
+
+                    @if (filtered.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted small">
+                                No containers match the selected security filter.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var c in filtered)
+                        {
+                            <tr class="border-secondary">
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="led-pulse @(c.State == "running" ? "led-pulse-green" : "led-pulse-red")"></span>
+                                        <div>
+                                            <div class="text-white font-weight-bold font-mono">@c.CleanName</div>
+                                            <div class="text-muted font-mono small">@c.Image</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="soc-badge @(c.RiskLevel switch {
+                                        SeverityLevel.Critical => "soc-badge-critical",
+                                        SeverityLevel.High => "soc-badge-high",
+                                        SeverityLevel.Medium => "soc-badge-medium",
+                                        _ => "soc-badge-secure"
+                                    }) font-mono">
+                                        @c.RiskScore/100 @c.RiskLevel.ToString().ToUpperInvariant()
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        <span class="text-white font-weight-bold">@c.Findings.Count Finding(s)</span>
+                                        @if (c.EscapeVectors.Count > 0)
+                                        {
+                                            <div class="text-danger small mt-1 font-mono">
+                                                ⚠ @c.EscapeVectors.First()
+                                            </div>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (c.HasDockerSocketMounted)
+                                    {
+                                        <span class="soc-badge soc-badge-critical font-mono">
+                                            /var/run/docker.sock
+                                        </span>
+                                    }
+                                    else if (c.HasProcMounted || c.HasSysMounted)
+                                    {
+                                        <span class="soc-badge soc-badge-high font-mono">
+                                            Host /proc or /sys
+                                        </span>
+                                    }
+                                    else if (c.Mounts.Count == 0)
+                                    {
+                                        <span class="text-muted small">No sensitive mounts</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="soc-badge soc-badge-neutral font-mono">@c.Mounts.Count Mounts</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                                        @if (c.Privileged)
+                                        {
+                                            <span class="soc-badge soc-badge-critical">--privileged</span>
+                                        }
+                                        @foreach (var cap in c.EffectiveDangerousCapabilities)
+                                        {
+                                            <span class="soc-badge soc-badge-high">CAP_@cap</span>
+                                        }
+                                        @if (c.SharesHostPid)
+                                        {
+                                            <span class="soc-badge soc-badge-high">--pid=host</span>
+                                        }
+                                        @if (c.ReadonlyRootfs)
+                                        {
+                                            <span class="soc-badge soc-badge-secure">read-only rootfs</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-flex justify-content-end gap-1">
+                                        <button class="soc-btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                                                @onclick="@(() => OpenInspectDrawer(c))">
+                                            Inspect Audit
+                                        </button>
+                                        @if (c.RiskScore >= 45)
+                                        {
+                                            <button class="soc-btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                                                    @onclick="@(() => OpenRemediationModal(c.Id, c.CleanName, "quarantine", "Quarantine from Network", "Disconnect all bridge network interfaces to contain lateral blast radius."))">
+                                                Quarantine
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Deep Container Inspection Modal / Drawer -->
+@if (SelectedContainerForInspection != null)
+{
+    var target = SelectedContainerForInspection;
+    <div class="soc-modal-backdrop" @onclick="CloseInspectDrawer">
+        <div class="soc-modal-content" style="max-width: 900px;" @onclick:stopPropagation="true">
+            <div class="modal-header d-flex align-items-center justify-content-between p-3 border-bottom border-secondary">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="soc-badge @(target.RiskLevel == SeverityLevel.Critical ? "soc-badge-critical" : "soc-badge-high")">
+                        RISK SCORE: @target.RiskScore/100
+                    </span>
+                    <h5 class="m-0 text-white font-mono font-weight-bold">@target.CleanName</h5>
+                </div>
+                <button type="button" class="soc-btn-outline p-1" @onclick="CloseInspectDrawer">×</button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- Metadata grid -->
+                <div class="soc-card p-3 mb-3 bg-dark bg-opacity-50">
+                    <div class="row g-2 font-mono small">
+                        <div class="col-md-3 text-muted">Container ID:</div>
+                        <div class="col-md-9 text-white">@target.Id</div>
+
+                        <div class="col-md-3 text-muted">Image:</div>
+                        <div class="col-md-9 text-cyan">@target.Image</div>
+
+                        <div class="col-md-3 text-muted">Status:</div>
+                        <div class="col-md-9 text-white">@target.State (User: @(string.IsNullOrEmpty(target.User) ? "root (0)" : target.User))</div>
+
+                        <div class="col-md-3 text-muted">Root Filesystem:</div>
+                        <div class="col-md-9 @(target.ReadonlyRootfs ? "text-success" : "text-warning")">
+                            @(target.ReadonlyRootfs ? "Read-Only (Hardened)" : "Read-Write (Writable persistence risk)")
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Escape Vectors Alert -->
+                @if (target.EscapeVectors.Count > 0)
+                {
+                    <div class="alert alert-danger bg-opacity-10 text-danger border-danger p-3 mb-3">
+                        <div class="d-flex align-items-center gap-2 font-weight-bold mb-1">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            </svg>
+                            CRITICAL HOST BREAKOUT VECTORS IDENTIFIED
+                        </div>
+                        <ul class="mb-0 ps-3 font-mono small">
+                            @foreach (var vector in target.EscapeVectors)
+                            {
+                                <li>@vector</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <!-- CIS Docker Benchmark Findings Checklist -->
+                <h6 class="soc-heading mt-3">CIS Docker Benchmark Findings & Violation Details</h6>
+                <div class="d-flex flex-column gap-2 mb-3">
+                    @foreach (var finding in target.Findings)
+                    {
+                        <div class="soc-card p-3 bg-dark bg-opacity-25 border-secondary">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="soc-badge @(finding.Severity == SeverityLevel.Critical ? "soc-badge-critical" : finding.Severity == SeverityLevel.High ? "soc-badge-high" : "soc-badge-medium")">
+                                        @finding.RuleId
+                                    </span>
+                                    <span class="text-white font-weight-bold small">@finding.Title</span>
+                                </div>
+                                <span class="soc-code small text-muted">@finding.CisBenchmark</span>
+                            </div>
+                            <div class="text-secondary small mt-1">@finding.Description</div>
+                            <div class="text-danger small font-mono mt-1">Impact: @finding.Impact</div>
+                            <div class="text-success small font-mono mt-1">Remediation: @finding.Remediation</div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Mounts & Sockets Table -->
+                <h6 class="soc-heading mt-3">Filesystem & Bind Mounts</h6>
+                @if (target.Mounts.Count == 0)
+                {
+                    <div class="text-muted small">No external bind mounts attached.</div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-dark table-sm small mb-0">
+                            <thead>
+                                <tr class="text-muted border-secondary">
+                                    <th>HOST SOURCE</th>
+                                    <th>CONTAINER DEST</th>
+                                    <th>MODE</th>
+                                    <th>SECURITY EVALUATION</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var m in target.Mounts)
+                                {
+                                    <tr class="border-secondary">
+                                        <td class="font-mono text-cyan">@m.Source</td>
+                                        <td class="font-mono text-white">@m.Destination</td>
+                                        <td>
+                                            <span class="soc-badge @(m.RW ? "soc-badge-high" : "soc-badge-neutral") font-mono">
+                                                @(m.RW ? "READ/WRITE" : "READ-ONLY")
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if (m.IsSensitive)
+                                            {
+                                                <span class="text-danger font-mono font-weight-bold">⚠ @m.RiskExplanation</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted font-mono">Standard Mount</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer d-flex justify-content-between p-3 border-top border-secondary">
+                <button type="button" class="soc-btn-outline" @onclick="CloseInspectDrawer">Close Inspection</button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="soc-btn-danger"
+                            @onclick="@(() => OpenRemediationModal(target.Id, target.CleanName, "quarantine", "Quarantine from Network", "Sever network interfaces to block lateral infection."))">
+                        Quarantine Network
+                    </button>
+                    @if (target.State == "running")
+                    {
+                        <button type="button" class="soc-btn-outline"
+                                @onclick="@(() => OpenRemediationModal(target.Id, target.CleanName, "pause", "Pause Container", "Suspend execution via SIGSTOP."))">
+                            Pause Container
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Remediation Modal -->
+<RemediationModal @bind-IsOpen="ShowModal"
+                  ContainerId="@SelectedContainerId"
+                  ContainerName="@SelectedContainerName"
+                  ActionType="@SelectedActionType"
+                  ActionTitle="@SelectedActionTitle"
+                  Reason="@SelectedReason"
+                  CustomRule="@SelectedCustomRule" />
+
+@code {
+    private string SearchQuery { get; set; } = string.Empty;
+    private SeverityLevel? FilterSeverity { get; set; } = null;
+    private ContainerSecurityProfile? SelectedContainerForInspection { get; set; }
+
+    private bool ShowModal { get; set; }
+    private string SelectedContainerId { get; set; } = string.Empty;
+    private string SelectedContainerName { get; set; } = string.Empty;
+    private string SelectedActionType { get; set; } = "isolate_network";
+    private string SelectedActionTitle { get; set; } = "Quarantine Container";
+    private string SelectedReason { get; set; } = string.Empty;
+    private string SelectedCustomRule { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += OnStateUpdated;
+    }
+
+    private void OnStateUpdated()
+    {
+        if (SelectedContainerForInspection != null)
+        {
+            var refreshed = State.Containers.FirstOrDefault(c => c.Id == SelectedContainerForInspection.Id);
+            if (refreshed != null) SelectedContainerForInspection = refreshed;
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateUpdated;
+    }
+
+    private void OpenInspectDrawer(ContainerSecurityProfile profile)
+    {
+        SelectedContainerForInspection = profile;
+    }
+
+    private void CloseInspectDrawer()
+    {
+        SelectedContainerForInspection = null;
+    }
+
+    private void OpenRemediationModal(string id, string name, string action, string title, string reason, string rule = "")
+    {
+        SelectedContainerId = id;
+        SelectedContainerName = name;
+        SelectedActionType = action;
+        SelectedActionTitle = title;
+        SelectedReason = reason;
+        SelectedCustomRule = rule;
+        ShowModal = true;
+    }
+}

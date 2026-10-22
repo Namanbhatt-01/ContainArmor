@@ -1,0 +1,424 @@
+@page "/"
+@inject ContainArmorStateService State
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>ContainArmor | Real-Time Container Security & Bridge Policy Auditor</PageTitle>
+
+<div class="dashboard-container">
+    <!-- Header Hero Banner -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="m-0 font-weight-bold text-white">Security Operations Center</h2>
+                <span class="soc-badge soc-badge-cyan">LIVE AUDITING</span>
+            </div>
+            <p class="text-secondary small mb-0 mt-1">
+                Real-time intra-bridge micro-segmentation auditing, capability abuse detection, and netfilter rule inspection.
+            </p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button class="soc-btn-outline" @onclick="@(() => Nav.NavigateTo("threat-lab"))">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                </svg>
+                <span>Threat Simulation Lab</span>
+            </button>
+            <button class="soc-btn-primary" @onclick="State.TriggerAuditAsync" disabled="@State.IsAuditing">
+                @if (State.IsAuditing)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    <span>Scanning Daemon...</span>
+                }
+                else
+                {
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span>Run Deep Scan</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- Top KPI Grid -->
+    <div class="row g-3 mb-4">
+        <!-- Fleet Hardening Gauge Card -->
+        <div class="col-lg-3 col-md-6">
+            <div class="soc-card h-100 d-flex flex-column justify-content-between @(State.Summary.OverallFleetScore < 50 ? "soc-card-glow-critical" : "")">
+                <div class="soc-heading">Fleet Security Score</div>
+                <div class="d-flex align-items-center justify-content-between my-2">
+                    <div>
+                        <div class="display-5 font-weight-bold font-mono @(State.Summary.OverallFleetScore >= 80 ? "text-success" : State.Summary.OverallFleetScore >= 50 ? "text-warning" : "text-danger")">
+                            @State.Summary.OverallFleetScore<span class="small" style="font-size: 1.25rem;">/100</span>
+                        </div>
+                        <div class="small text-muted font-mono mt-1">STATUS: @State.Summary.OverallRiskLevel.ToString().ToUpperInvariant()</div>
+                    </div>
+                    <div class="score-ring-container">
+                        <svg width="68" height="68" viewBox="0 0 36 36" class="score-ring">
+                            <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3.5" />
+                            <path class="circle" stroke-dasharray="@($"{State.Summary.OverallFleetScore}, 100")" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="@(State.Summary.OverallFleetScore >= 80 ? "#10B981" : State.Summary.OverallFleetScore >= 50 ? "#F59E0B" : "#EF4444")" stroke-width="3.5" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="text-secondary small border-top border-secondary pt-2 mt-2">
+                    Evaluated against CIS Docker Benchmark v1.6.0
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Containers KPI -->
+        <div class="col-lg-3 col-md-6">
+            <div class="soc-card h-100 d-flex flex-column justify-content-between">
+                <div class="soc-heading">Audited Containers</div>
+                <div class="my-2">
+                    <div class="display-5 font-weight-bold font-mono text-white">@State.Summary.TotalContainers</div>
+                    <div class="d-flex align-items-center gap-2 mt-1">
+                        <span class="soc-badge soc-badge-secure">@State.Summary.RunningContainers RUNNING</span>
+                        <span class="soc-badge soc-badge-neutral">@(State.Summary.TotalContainers - State.Summary.RunningContainers) STOPPED</span>
+                    </div>
+                </div>
+                <div class="text-secondary small border-top border-secondary pt-2 mt-2">
+                    Docker Engine API: @(State.Containers.Count) profiles active
+                </div>
+            </div>
+        </div>
+
+        <!-- Intra-Bridge Isolation Breaches KPI -->
+        <div class="col-lg-3 col-md-6">
+            <div class="soc-card h-100 d-flex flex-column justify-content-between @(State.Summary.ActiveIsolationBreachesCount > 0 ? "soc-card-glow-critical" : "")">
+                <div class="soc-heading">Intra-Bridge Breaches</div>
+                <div class="my-2">
+                    <div class="display-5 font-weight-bold font-mono @(State.Summary.ActiveIsolationBreachesCount > 0 ? "text-danger" : "text-success")">
+                        @State.Summary.ActiveIsolationBreachesCount
+                    </div>
+                    <div class="small mt-1 text-secondary">
+                        Lateral traversal vectors on shared bridges
+                    </div>
+                </div>
+                <div class="border-top border-secondary pt-2 mt-2">
+                    <a href="network-topology" class="text-cyan small text-decoration-none">View Isolation Matrix →</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Critical Breakout Vectors KPI -->
+        <div class="col-lg-3 col-md-6">
+            <div class="soc-card h-100 d-flex flex-column justify-content-between @(State.Summary.CriticalRiskContainers > 0 ? "soc-card-glow-critical" : "")">
+                <div class="soc-heading">Critical Escape Vectors</div>
+                <div class="my-2">
+                    <div class="display-5 font-weight-bold font-mono @(State.Summary.CriticalRiskContainers > 0 ? "text-danger" : "text-success")">
+                        @State.Summary.CriticalRiskContainers
+                    </div>
+                    <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
+                        @if (State.Summary.PrivilegedContainersCount > 0)
+                        {
+                            <span class="soc-badge soc-badge-critical">@State.Summary.PrivilegedContainersCount PRIVILEGED</span>
+                        }
+                        @if (State.Summary.MountedDockerSocketsCount > 0)
+                        {
+                            <span class="soc-badge soc-badge-critical">@State.Summary.MountedDockerSocketsCount SOCK MOUNT</span>
+                        }
+                        @if (State.Summary.DangerousCapabilitiesCount > 0)
+                        {
+                            <span class="soc-badge soc-badge-high">@State.Summary.DangerousCapabilitiesCount DANGEROUS CAPS</span>
+                        }
+                    </div>
+                </div>
+                <div class="border-top border-secondary pt-2 mt-2">
+                    <a href="security-audits" class="text-cyan small text-decoration-none">Inspect Container Security →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content: Lateral Breaches & Threat Stream -->
+    <div class="row g-3 mb-4">
+        <!-- Intra-Bridge Isolation & Firewall Alert Panel -->
+        <div class="col-lg-7">
+            <div class="soc-card h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="soc-heading m-0">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-danger">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                            <polyline points="2 12 12 17 22 12"></polyline>
+                        </svg>
+                        Intra-Bridge Isolation & Firewall Posture
+                    </div>
+                    <span class="soc-badge @(State.Summary.ActiveIsolationBreachesCount > 0 ? "soc-badge-critical" : "soc-badge-secure")">
+                        @(State.Summary.ActiveIsolationBreachesCount > 0 ? $"{State.Summary.ActiveIsolationBreachesCount} BREACHES DETECTED" : "ISOLATED")
+                    </span>
+                </div>
+
+                @if (State.Summary.ActiveBreaches.Count > 0)
+                {
+                    <div class="d-flex flex-column gap-2 mb-3">
+                        @foreach (var breach in State.Summary.ActiveBreaches)
+                        {
+                            <div class="soc-card p-3 bg-dark bg-opacity-50 border-danger border-opacity-25">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="soc-badge soc-badge-critical font-mono">LATERAL BREACH</span>
+                                        <span class="text-white font-weight-bold font-mono">@breach.SourceContainer → @breach.TargetContainer</span>
+                                    </div>
+                                    <span class="soc-code small">Bridge: @breach.NetworkName</span>
+                                </div>
+                                <div class="text-secondary small mb-2">@breach.Detail</div>
+                                <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary">
+                                    <span class="soc-code text-cyan small">@breach.RecommendedIptablesRule</span>
+                                    <button class="soc-btn-danger" @onclick="@(() => OpenRemediationModal(breach.SourceContainer, breach.SourceContainer, "apply_iptables_drop", "Apply Netfilter Drop Rule", breach.Detail, breach.RecommendedIptablesRule))">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                        </svg>
+                                        Enforce Isolation
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-success bg-opacity-10 text-success border-success p-3 mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            <strong>Zero Intra-Bridge Isolation Breaches Detected</strong>
+                        </div>
+                        <div class="small mt-1">Containers are either running on segmented custom networks or have ICC disabled.</div>
+                    </div>
+                }
+
+                <!-- Netfilter Chain Snapshot -->
+                <div class="soc-card p-3 bg-dark bg-opacity-25 mt-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="soc-heading m-0">Netfilter DOCKER-USER Chain Status</span>
+                        <span class="soc-badge @(State.Iptables.DockerUserChainProperlySecured ? "soc-badge-secure" : "soc-badge-high")">
+                            @(State.Iptables.DockerUserChainProperlySecured ? "SECURED" : "DEFAULT (UNSECURED)")
+                        </span>
+                    </div>
+                    <div class="small text-secondary mb-2">
+                        Docker automatically forwards incoming packets to the <code>DOCKER-USER</code> chain before evaluating bridge rules.
+                    </div>
+                    @if (State.Iptables.SecurityWarnings.Count > 0)
+                    {
+                        <div class="text-warning small font-mono">
+                            ⚠ @State.Iptables.SecurityWarnings.First()
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Live SignalR Telemetry Stream -->
+        <div class="col-lg-5">
+            <div class="soc-card h-100 d-flex flex-column">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="soc-heading m-0">
+                        <span class="led-pulse led-pulse-green"></span>
+                        Live Telemetry Stream
+                    </div>
+                    <span class="soc-badge soc-badge-neutral font-mono">SIGNALR FEED</span>
+                </div>
+
+                <div class="soc-telemetry-feed flex-grow-1 overflow-auto pe-1" style="max-height: 480px;">
+                    @if (State.Events.Count == 0)
+                    {
+                        <div class="text-muted text-center py-4 small">Waiting for Docker daemon lifecycle telemetry...</div>
+                    }
+                    else
+                    {
+                        @foreach (var ev in State.Events)
+                        {
+                            <div class="soc-feed-item mb-2 p-2 rounded soc-card @(ev.Severity >= SeverityLevel.Critical ? "border-danger border-opacity-50" : "")">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <div class="d-flex align-items-center gap-1">
+                                        <span class="soc-badge @(ev.Severity switch {
+                                            SeverityLevel.Critical => "soc-badge-critical",
+                                            SeverityLevel.High => "soc-badge-high",
+                                            SeverityLevel.Medium => "soc-badge-medium",
+                                            _ => "soc-badge-cyan"
+                                        })">@ev.Severity.ToString().ToUpperInvariant()</span>
+                                        <span class="text-white font-weight-bold small font-mono">@ev.Title</span>
+                                    </div>
+                                    <span class="text-muted font-mono" style="font-size: 0.65rem;">@ev.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+                                </div>
+                                <div class="text-secondary small">@ev.Message</div>
+                                @if (!string.IsNullOrEmpty(ev.ContainerName))
+                                {
+                                    <div class="mt-1">
+                                        <span class="soc-code" style="font-size: 0.7rem;">Target: @ev.ContainerName</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active High-Risk Workloads Grid -->
+    <div class="soc-card mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="soc-heading m-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-cyan">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                    <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                    <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                </svg>
+                Active Container Landscape & Threat Posture
+            </div>
+            <a href="security-audits" class="text-cyan small text-decoration-none">Full Container Inventory →</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle mb-0" style="background: transparent;">
+                <thead>
+                    <tr class="text-muted small border-secondary">
+                        <th>CONTAINER</th>
+                        <th>IMAGE</th>
+                        <th>RISK SCORE</th>
+                        <th>ISOLATION FLAGS & CAPABILITIES</th>
+                        <th>BRIDGE NETWORKS</th>
+                        <th class="text-end">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in State.Containers)
+                    {
+                        <tr class="border-secondary">
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="led-pulse @(c.State == "running" ? "led-pulse-green" : "led-pulse-red")"></span>
+                                    <div>
+                                        <div class="text-white font-weight-bold font-mono">@c.CleanName</div>
+                                        <div class="text-muted font-mono" style="font-size: 0.7rem;">@c.ShortId</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="soc-code">@c.Image</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="soc-badge @(c.RiskLevel switch {
+                                        SeverityLevel.Critical => "soc-badge-critical",
+                                        SeverityLevel.High => "soc-badge-high",
+                                        SeverityLevel.Medium => "soc-badge-medium",
+                                        _ => "soc-badge-secure"
+                                    }) font-mono">
+                                        @c.RiskScore/100 @c.RiskLevel.ToString().ToUpperInvariant()
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    @if (c.Privileged)
+                                    {
+                                        <span class="soc-badge soc-badge-critical">--privileged</span>
+                                    }
+                                    @if (c.HasDockerSocketMounted)
+                                    {
+                                        <span class="soc-badge soc-badge-critical">docker.sock</span>
+                                    }
+                                    @foreach (var cap in c.EffectiveDangerousCapabilities)
+                                    {
+                                        <span class="soc-badge soc-badge-high">CAP_@cap</span>
+                                    }
+                                    @if (c.SharesHostPid)
+                                    {
+                                        <span class="soc-badge soc-badge-high">--pid=host</span>
+                                    }
+                                    @if (c.ReadonlyRootfs)
+                                    {
+                                        <span class="soc-badge soc-badge-secure">read-only</span>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                @foreach (var net in c.Networks)
+                                {
+                                    <span class="soc-badge @(net.NetworkName == "bridge" ? "soc-badge-high" : "soc-badge-neutral") font-mono me-1">
+                                        @net.NetworkName (@net.IPAddress)
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex justify-content-end gap-1">
+                                    @if (c.RiskScore >= 45)
+                                    {
+                                        <button class="soc-btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                                                @onclick="@(() => OpenRemediationModal(c.Id, c.CleanName, "quarantine", "Quarantine from Network", "Sever network interfaces to block lateral infection."))">
+                                            Quarantine
+                                        </button>
+                                    }
+                                    @if (c.State == "running")
+                                    {
+                                        <button class="soc-btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                                                @onclick="@(() => OpenRemediationModal(c.Id, c.CleanName, "pause", "Pause Container", "Suspend process execution via SIGSTOP."))">
+                                            Pause
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Remediation Modal -->
+<RemediationModal @bind-IsOpen="ShowModal"
+                  ContainerId="@SelectedContainerId"
+                  ContainerName="@SelectedContainerName"
+                  ActionType="@SelectedActionType"
+                  ActionTitle="@SelectedActionTitle"
+                  Reason="@SelectedReason"
+                  CustomRule="@SelectedCustomRule" />
+
+@code {
+    private bool ShowModal { get; set; }
+    private string SelectedContainerId { get; set; } = string.Empty;
+    private string SelectedContainerName { get; set; } = string.Empty;
+    private string SelectedActionType { get; set; } = "isolate_network";
+    private string SelectedActionTitle { get; set; } = "Quarantine Container";
+    private string SelectedReason { get; set; } = string.Empty;
+    private string SelectedCustomRule { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += OnStateUpdated;
+    }
+
+    private void OnStateUpdated()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateUpdated;
+    }
+
+    private void OpenRemediationModal(string id, string name, string action, string title, string reason, string rule = "")
+    {
+        SelectedContainerId = id;
+        SelectedContainerName = name;
+        SelectedActionType = action;
+        SelectedActionTitle = title;
+        SelectedReason = reason;
+        SelectedCustomRule = rule;
+        ShowModal = true;
+    }
+}

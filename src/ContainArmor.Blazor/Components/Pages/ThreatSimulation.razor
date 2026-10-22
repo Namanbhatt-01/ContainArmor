@@ -1,0 +1,189 @@
+@page "/threat-lab"
+@inject ContainArmorStateService State
+
+<PageTitle>Threat Simulation Lab | ContainArmor</PageTitle>
+
+<div class="threat-lab-container">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="m-0 font-weight-bold text-white">Threat Simulation & Viva Demonstration Center</h2>
+                <span class="soc-badge soc-badge-critical">DEMO & EVALUATION LAB</span>
+            </div>
+            <p class="text-secondary small mb-0 mt-1">
+                Trigger real-time threat vectors to demonstrate instant SignalR telemetry alerts, intra-bridge privilege asymmetry detection, and one-click remediation.
+            </p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button class="soc-btn-primary" @onclick="State.TriggerAuditAsync" disabled="@State.IsAuditing">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span>Trigger Fleet Audit</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Viva Defense Guide Alert -->
+    <div class="soc-card p-3 mb-4 bg-dark bg-opacity-50 border-cyan border-opacity-30">
+        <div class="d-flex align-items-start gap-3">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-cyan mt-1">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            <div>
+                <h5 class="text-white font-weight-bold m-0">Viva Defense & Evaluator Walkthrough</h5>
+                <p class="text-secondary small mt-1 mb-2">
+                    Use these interactive threat injections during your project demonstration. Triggering an injection generates real-time SignalR alerts, updates the SOC risk scorecards, and displays the lateral breach on the Intra-Bridge Matrix in seconds.
+                </p>
+                <div class="d-flex gap-2 flex-wrap font-mono small">
+                    <span class="soc-badge soc-badge-neutral">MITRE ATT&CK: T1611 (Escape to Host)</span>
+                    <span class="soc-badge soc-badge-neutral">MITRE ATT&CK: T1046 (Network Service Discovery)</span>
+                    <span class="soc-badge soc-badge-neutral">CIS Benchmark: 5.1 & 5.31</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Scenarios Grid -->
+    <div class="row g-3 mb-4">
+        <!-- Scenario 1: Intra-Bridge Packet Sniffing -->
+        <div class="col-lg-6">
+            <div class="soc-card h-100 d-flex flex-column justify-content-between border-danger border-opacity-30">
+                <div>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="soc-badge soc-badge-critical">SCENARIO 1</span>
+                        <span class="soc-code text-danger">CAP_NET_ADMIN</span>
+                    </div>
+                    <h5 class="text-white font-weight-bold mb-1">Intra-Bridge ARP Sniffing & Traversal</h5>
+                    <p class="text-secondary small mb-3">
+                        A container attached to the shared Docker bridge with <code>CAP_NET_ADMIN</code> enabled can manipulate network interface queues, sniff inter-container packets, and perform ARP spoofing to intercept traffic headed to internal backend databases.
+                    </p>
+                    <div class="p-2 rounded bg-dark font-mono text-cyan small mb-3">
+                        docker run -d --cap-add=NET_ADMIN --network=bridge containarmor-threat/bridge-sniffer
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between border-top border-secondary pt-3">
+                    <span class="text-muted small">Target: Default Bridge (docker0)</span>
+                    <button class="soc-btn-danger" @onclick="@(() => TriggerThreatScenario("Intra-Bridge Sniffer Active", "Container with CAP_NET_ADMIN detected on default bridge 'bridge' alongside sensitive database.", "sniffing-attacker"))">
+                        Simulate Attack Pulse
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scenario 2: Docker Socket Hijacking Breakout -->
+        <div class="col-lg-6">
+            <div class="soc-card h-100 d-flex flex-column justify-content-between border-danger border-opacity-30">
+                <div>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="soc-badge soc-badge-critical">SCENARIO 2</span>
+                        <span class="soc-code text-danger">/var/run/docker.sock</span>
+                    </div>
+                    <h5 class="text-white font-weight-bold mb-1">Docker Socket Breakout & Host Takeover</h5>
+                    <p class="text-secondary small mb-3">
+                        A container with <code>/var/run/docker.sock</code> mounted has full access to the Docker daemon. An adversary can issue commands to spawn a new privileged container mounting the host's root filesystem (<code>-v /:/host</code>), gaining instant root on the host machine.
+                    </p>
+                    <div class="p-2 rounded bg-dark font-mono text-cyan small mb-3">
+                        docker run -d -v /var/run/docker.sock:/var/run/docker.sock containarmor-threat/socket-hijacker
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between border-top border-secondary pt-3">
+                    <span class="text-muted small">Target: Daemon Unix Socket</span>
+                    <button class="soc-btn-danger" @onclick="@(() => TriggerThreatScenario("Docker Socket Hijack Attempt", "Host /var/run/docker.sock mount detected with RW access. Host root compromised.", "priv-escape-c2"))">
+                        Simulate Attack Pulse
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scenario 3: Host PID Snooping -->
+        <div class="col-lg-6">
+            <div class="soc-card h-100 d-flex flex-column justify-content-between border-warning border-opacity-30">
+                <div>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="soc-badge soc-badge-high">SCENARIO 3</span>
+                        <span class="soc-code text-warning">--pid=host</span>
+                    </div>
+                    <h5 class="text-white font-weight-bold mb-1">Host PID Namespace Snooping</h5>
+                    <p class="text-secondary small mb-3">
+                        A container with <code>--pid=host</code> shares the process namespace with the host machine. It can inspect <code>/proc/&lt;pid&gt;/environ</code> to harvest host secrets, inject tracing code via <code>ptrace</code>, and terminate host daemons.
+                    </p>
+                    <div class="p-2 rounded bg-dark font-mono text-cyan small mb-3">
+                        docker run -d --pid=host containarmor-threat/pid-scanner
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between border-top border-secondary pt-3">
+                    <span class="text-muted small">Target: Linux Kernel PID Namespace</span>
+                    <button class="soc-btn-outline text-warning border-warning" @onclick="@(() => TriggerThreatScenario("Host PID Namespace Shared", "Container running with --pid=host. Host environment secrets exposed to snooping.", "pid-snoop-agent"))">
+                        Simulate Attack Pulse
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scenario 4: Fully Hardened Zero-Trust Container -->
+        <div class="col-lg-6">
+            <div class="soc-card h-100 d-flex flex-column justify-content-between border-success border-opacity-30">
+                <div>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="soc-badge soc-badge-secure">SCENARIO 4</span>
+                        <span class="soc-code text-success">DEFENSE-IN-DEPTH</span>
+                    </div>
+                    <h5 class="text-white font-weight-bold mb-1">Hardened Zero-Trust Microservice</h5>
+                    <p class="text-secondary small mb-3">
+                        Complies fully with CIS Docker Benchmark: unprivileged non-root user (<code>--user 10001</code>), read-only root filesystem (<code>--read-only</code>), dropped all capabilities (<code>--cap-drop=ALL</code>), and running on an isolated custom bridge with ICC disabled.
+                    </p>
+                    <div class="p-2 rounded bg-dark font-mono text-cyan small mb-3">
+                        docker run -d --read-only --user 10001 --cap-drop=ALL --network=containarmor-isolated envoy:distroless
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between border-top border-secondary pt-3">
+                    <span class="text-muted small">Status: 100/100 Hardened</span>
+                    <button class="soc-btn-outline text-success border-success" @onclick="@(() => TriggerThreatScenario("Hardened Baseline Verified", "Zero-trust container compliant with CIS 5.1 through 5.31 standards.", "hardened-edge-proxy"))">
+                        Simulate Audit Verify
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Execution Status Banner -->
+    @if (!string.IsNullOrEmpty(LastSimulationMessage))
+    {
+        <div class="alert alert-info bg-opacity-10 text-cyan border-cyan p-3">
+            <div class="d-flex align-items-center gap-2 font-mono">
+                <span class="led-pulse led-pulse-green"></span>
+                <span>@LastSimulationMessage</span>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string LastSimulationMessage { get; set; } = string.Empty;
+
+    private async Task TriggerThreatScenario(string title, string message, string targetContainer)
+    {
+        var ev = new SecurityEvent
+        {
+            EventType = "threat_simulation_pulse",
+            Severity = title.Contains("Hardened") ? SeverityLevel.Info : SeverityLevel.Critical,
+            Title = title,
+            Message = message,
+            ContainerName = targetContainer,
+            Timestamp = DateTime.UtcNow
+        };
+
+        State.Events.Insert(0, ev);
+        LastSimulationMessage = $"[SIMULATOR TRIGGERED] '{title}' broadcasted to SignalR telemetry. Dashboard updated.";
+        await State.TriggerAuditAsync();
+    }
+}

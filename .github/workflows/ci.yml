@@ -1,0 +1,33 @@
+name: ContainArmor CI Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    name: Build & Verify Solution
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9.0 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore ContainArmor.sln
+
+      - name: Build Solution
+        run: dotnet build ContainArmor.sln --configuration Release --no-restore
+
+      - name: Run xUnit Test Suite
+        run: dotnet test ContainArmor.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test_results.trx"
+
+      - name: Verify Dockerfile Build
+        run: docker build -t containarmor:ci-verify .

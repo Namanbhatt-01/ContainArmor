@@ -1,0 +1,105 @@
+@inject ContainArmorStateService State
+
+@if (State.LatestToastAlert != null)
+{
+    var alert = State.LatestToastAlert;
+    <div class="soc-toast animate-slide-in">
+        <div class="soc-toast-header">
+            <span class="led-pulse @(alert.Severity >= SeverityLevel.Critical ? "led-pulse-red" : "led-pulse-green")"></span>
+            <strong class="soc-toast-title">REAL-TIME THREAT DETECTED</strong>
+            <span class="soc-badge @(alert.Severity >= SeverityLevel.Critical ? "soc-badge-critical" : "soc-badge-high") ms-auto">
+                @alert.Severity.ToString().ToUpperInvariant()
+            </span>
+            <button type="button" class="soc-toast-close" @onclick="State.DismissToast">×</button>
+        </div>
+        <div class="soc-toast-body">
+            <div class="soc-toast-headline">@alert.Title</div>
+            <div class="soc-toast-desc">@alert.Message</div>
+            @if (!string.IsNullOrEmpty(alert.ContainerName))
+            {
+                <div class="mt-2">
+                    <span class="soc-code">Container: @alert.ContainerName</span>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<style>
+.soc-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 380px;
+    background: #181E2E;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(239, 68, 68, 0.2);
+    border-radius: 10px;
+    z-index: 9999;
+    overflow: hidden;
+    backdrop-filter: blur(16px);
+}
+
+.soc-toast-header {
+    background: rgba(239, 68, 68, 0.1);
+    padding: 0.6rem 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.soc-toast-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #F87171;
+    font-family: var(--font-mono);
+}
+
+.soc-toast-close {
+    background: transparent;
+    border: none;
+    color: #9CA3AF;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.25rem;
+}
+
+.soc-toast-close:hover {
+    color: white;
+}
+
+.soc-toast-body {
+    padding: 0.85rem;
+}
+
+.soc-toast-headline {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #F9FAFB;
+    margin-bottom: 0.35rem;
+}
+
+.soc-toast-desc {
+    font-size: 0.78rem;
+    color: #D1D5DB;
+    line-height: 1.4;
+}
+
+.animate-slide-in {
+    animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+</style>

@@ -1,0 +1,225 @@
+@page "/firewall-audit"
+@inject ContainArmorStateService State
+@implements IDisposable
+
+<PageTitle>Host Netfilter & IPTables Audit | ContainArmor</PageTitle>
+
+<div class="iptables-audit-container">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="m-0 font-weight-bold text-white">Host Netfilter & IPTables Rule Auditor</h2>
+                <span class="soc-badge soc-badge-cyan">FIREWALL CHAIN INSPECTOR</span>
+            </div>
+            <p class="text-secondary small mb-0 mt-1">
+                Audits the host's Linux netfilter subsystem (DOCKER-USER, FORWARD, and DOCKER-ISOLATION chains) for misordered rules, drop leaks, and bridge cross-talk vulnerabilities.
+            </p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button class="soc-btn-primary" @onclick="State.TriggerAuditAsync" disabled="@State.IsAuditing">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span>Rescan Netfilter Chains</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Overview Banner -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="soc-card h-100">
+                <div class="soc-heading">How Docker Firewalling Works & Threat Vector Explained</div>
+                <p class="text-secondary small mb-2">
+                    When Docker daemon initializes, it installs rules in the Linux kernel <code>FORWARD</code> chain. By default, all incoming packets pass through the <code>DOCKER-USER</code> chain first.
+                </p>
+                <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary font-mono small">
+                    <div class="text-cyan mb-1">PACKET TRAVERSAL PATH:</div>
+                    <div class="text-white">
+                        [Ingress Packet] ➔ <span class="text-warning">FORWARD</span> ➔ <span class="text-cyan">DOCKER-USER</span> ➔ <span class="text-muted">DOCKER-ISOLATION-STAGE-1</span> ➔ <span class="text-success">DOCKER</span> ➔ [Target Container]
+                    </div>
+                </div>
+                <div class="mt-3 text-secondary small">
+                    <strong class="text-white">Security Vulnerability:</strong> If the <code>DOCKER-USER</code> chain contains only a generic <code>RETURN</code> rule, or if the bridge has <code>-i docker0 -o docker0 -j ACCEPT</code>, malicious containers can spoof packets and reach other containers across bridges without boundary enforcement.
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="soc-card h-100 d-flex flex-column justify-content-between">
+                <div class="soc-heading">Firewall Posture Summary</div>
+                <div class="my-2">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small">Total Rules Inspected:</span>
+                        <span class="font-mono text-white font-weight-bold">@State.Iptables.TotalRulesAudited</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small">High Risk / Leaked Rules:</span>
+                        <span class="font-mono text-danger font-weight-bold">@State.Iptables.HighRiskRulesCount</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="text-muted small">DOCKER-USER Status:</span>
+                        <span class="soc-badge @(State.Iptables.DockerUserChainProperlySecured ? "soc-badge-secure" : "soc-badge-high")">
+                            @(State.Iptables.DockerUserChainProperlySecured ? "HARDENED" : "UNFILTERED")
+                        </span>
+                    </div>
+                </div>
+                <div class="border-top border-secondary pt-2 mt-2">
+                    <button class="soc-btn-danger w-100 justify-content-center" @onclick="OpenCustomDropModal">
+                        Inject Netfilter Drop Rule
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chains Inspection Accordion / Tabs -->
+    <div class="soc-card mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="soc-heading m-0">Active Netfilter Chains & Rule Hierarchy</div>
+            <span class="text-muted small font-mono">Engine: @State.Iptables.FirewallEngine</span>
+        </div>
+
+        @foreach (var chain in State.Iptables.Chains)
+        {
+            <div class="soc-card mb-3 p-3 bg-dark bg-opacity-50 border-secondary">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="soc-badge soc-badge-cyan font-mono">CHAIN @chain.ChainName</span>
+                        <span class="text-muted small font-mono">Policy: @chain.Policy</span>
+                        <span class="text-muted small font-mono">(@chain.Rules.Count Rules)</span>
+                    </div>
+
+                    @if (chain.Rules.Any(r => r.Status is RuleStatus.DangerousPromiscuous or RuleStatus.MissingDrop))
+                    {
+                        <span class="soc-badge soc-badge-high">LEAK / AUDIT WARNING</span>
+                    }
+                    else
+                    {
+                        <span class="soc-badge soc-badge-secure">COMPLIANT</span>
+                    }
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-dark table-sm table-hover align-middle small mb-0 font-mono">
+                        <thead>
+                            <tr class="text-muted border-secondary">
+                                <th style="width: 50px;">#</th>
+                                <th style="width: 90px;">TARGET</th>
+                                <th style="width: 80px;">PROT</th>
+                                <th>IN</th>
+                                <th>OUT</th>
+                                <th>SOURCE</th>
+                                <th>DEST</th>
+                                <th>OPTIONS</th>
+                                <th>SECURITY AUDIT NOTE</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in chain.Rules)
+                            {
+                                <tr class="border-secondary @(r.Status == RuleStatus.DangerousPromiscuous ? "table-danger bg-opacity-10" : "")">
+                                    <td class="text-muted">@r.LineNumber</td>
+                                    <td>
+                                        <span class="soc-badge @(r.Target switch {
+                                            "DROP" => "soc-badge-critical",
+                                            "ACCEPT" => "soc-badge-secure",
+                                            "RETURN" => "soc-badge-neutral",
+                                            _ => "soc-badge-cyan"
+                                        })">@r.Target</span>
+                                    </td>
+                                    <td>@r.Protocol</td>
+                                    <td class="text-cyan">@r.InInterface</td>
+                                    <td class="text-cyan">@r.OutInterface</td>
+                                    <td class="text-white">@r.Source</td>
+                                    <td class="text-white">@r.Destination</td>
+                                    <td class="text-muted">@(string.IsNullOrEmpty(r.ExtraOptions) ? "-" : r.ExtraOptions)</td>
+                                    <td>
+                                        <span class="@(r.Status switch {
+                                            RuleStatus.DangerousPromiscuous => "text-danger font-weight-bold",
+                                            RuleStatus.MissingDrop => "text-warning",
+                                            _ => "text-secondary"
+                                        })">
+                                            @r.AnalysisNote
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Recommended Hardening Fixes -->
+    @if (State.Iptables.RecommendedFixes.Count > 0)
+    {
+        <div class="soc-card mb-4 border-warning border-opacity-30">
+            <div class="soc-heading text-warning">Recommended Netfilter Hardening Commands</div>
+            <p class="text-secondary small mb-3">
+                To isolate intra-bridge lateral movement and enforce zero-trust container networking, run the following commands on the Docker host:
+            </p>
+            <div class="d-flex flex-column gap-2 font-mono small">
+                @foreach (var fix in State.Iptables.RecommendedFixes.Distinct())
+                {
+                    <div class="p-2 rounded bg-dark d-flex align-items-center justify-content-between">
+                        <span class="text-cyan">@fix</span>
+                        <button class="soc-btn-outline py-1 px-2" style="font-size: 0.72rem;"
+                                @onclick="@(() => OpenCustomDropModalWithRule(fix))">
+                            Inject Rule
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Remediation Modal -->
+<RemediationModal @bind-IsOpen="ShowModal"
+                  ContainerId="host-netfilter"
+                  ContainerName="DOCKER-USER Subsystem"
+                  ActionType="apply_iptables_drop"
+                  ActionTitle="Inject Netfilter Drop Rule"
+                  Reason="Mitigate lateral inter-container traffic on Docker bridge"
+                  CustomRule="@TargetRuleSource" />
+
+@code {
+    private bool ShowModal { get; set; }
+    private string TargetRuleSource { get; set; } = "172.17.0.0/16";
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += OnStateUpdated;
+    }
+
+    private void OnStateUpdated()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateUpdated;
+    }
+
+    private void OpenCustomDropModal()
+    {
+        TargetRuleSource = "172.17.0.2";
+        ShowModal = true;
+    }
+
+    private void OpenCustomDropModalWithRule(string rule)
+    {
+        // Extract IP or use default
+        var parts = rule.Split(' ');
+        var sIdx = Array.IndexOf(parts, "-s");
+        TargetRuleSource = (sIdx >= 0 && sIdx + 1 < parts.Length) ? parts[sIdx + 1] : "172.17.0.2";
+        ShowModal = true;
+    }
+}

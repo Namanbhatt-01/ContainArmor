@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  containarmor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: containarmor-soc
+    restart: unless-stopped
+    ports:
+      - "5200:5200"
+    volumes:
+      # Mount Docker engine unix domain socket for real-time lifecycle event listening
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    cap_add:
+      # Required for inspecting host netfilter/iptables rules
+      - NET_ADMIN
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5200
+      - DOCKER_SOCK=/var/run/docker.sock
+    networks:
+      - containarmor-mgmt
+
+networks:
+  containarmor-mgmt:
+    driver: bridge

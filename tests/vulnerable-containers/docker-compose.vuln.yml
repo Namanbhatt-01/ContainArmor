@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # 1. Privileged Container with Docker Socket & SYS_ADMIN (CIS 5.1 & 5.31 Violation)
+  priv-escape-c2:
+    image: alpine:latest
+    container_name: priv-escape-c2
+    command: sh -c "echo 'Privileged C2 Daemon Active' && sleep 3600"
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
+      - SYS_PTRACE
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /etc:/host/etc:ro
+    networks:
+      - app-bridge
+
+  # 2. Intra-Bridge Packet Sniffing Attacker (CIS 5.2 Violation & Bridge Policy Failure)
+  sniffing-attacker:
+    image: alpine:latest
+    container_name: sniffing-attacker
+    command: sh -c "echo 'Bridge Sniffer Listening' && sleep 3600"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      - app-bridge
+
+  # 3. Target Internal Payment Vault on the same bridge (Victim of Privilege Asymmetry)
+  internal-payment-vault:
+    image: alpine:latest
+    container_name: internal-payment-vault
+    command: sh -c "echo 'Vault Daemon Started' && nc -lk -p 5432 -e echo 'SECURE_VAULT_READY'"
+    user: "10001"
+    cap_drop:
+      - ALL
+    networks:
+      - app-bridge
+
+  # 4. Hardened Microservice (CIS Docker Benchmark Compliant Benchmark)
+  hardened-edge-proxy:
+    image: alpine:latest
+    container_name: hardened-edge-proxy
+    command: sh -c "echo 'Hardened Proxy Active' && sleep 3600"
+    read_only: true
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+      - /run
+    networks:
+      - isolated-network
+
+networks:
+  app-bridge:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+  isolated-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "false"
