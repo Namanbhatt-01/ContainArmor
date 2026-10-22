@@ -1,43 +1,47 @@
 # Contributing to ContainArmor
 
-Thank you for your interest in contributing to **ContainArmor**! We welcome contributions from the cybersecurity and software engineering communities to help harden containerized infrastructures against intra-bridge traversal, privilege escalation, and netfilter vulnerabilities.
+Contributions are welcome from the software engineering and cybersecurity communities. This guide outlines the development standards, workflow, and testing requirements for ContainArmor.
 
 ---
 
-## 🛠️ Development Workflow
+## Development Prerequisites
 
-### Prerequisites
-* [.NET 9.0 SDK](https://dotnet.microsoft.com/)
-* [Docker Engine 24+](https://docs.docker.com/engine/install/) (with Unix Domain Socket access at `/var/run/docker.sock`)
-* Docker Compose v2
-
-### Clone & Build
-```bash
-git clone https://github.com/namanbhatt/ContainArmor.git
-cd ContainArmor
-
-# Restore and build all solution components
-dotnet restore
-dotnet build ContainArmor.sln
-```
-
-### Running Tests
-All tests are implemented with xUnit:
-```bash
-dotnet test ContainArmor.sln --logger "console;verbosity=detailed"
-```
-
-### Launching the Dashboard Locally
-```bash
-# Launch interactive Blazor SOC dashboard on port 5200
-dotnet run --project src/ContainArmor.Blazor --urls http://127.0.0.1:5200
-```
+* .NET 9.0 SDK
+* Docker Engine 24.0+ (with active daemon Unix socket at `/var/run/docker.sock`)
+* Docker Compose v2.0+
+* Git 2.30+
 
 ---
 
-## 🏛️ Repository Architecture
+## Workspace Setup
 
-* `src/ContainArmor.Engine/`: Core domain logic, Docker Unix Socket client, CIS benchmark evaluator, bridge matrix calculation, iptables netfilter auditor, and remediation service.
+1. Fork and clone the repository:
+   ```bash
+   git clone https://github.com/Namanbhatt-01/ContainArmor.git
+   cd ContainArmor
+   ```
+
+2. Restore solution dependencies and build:
+   ```bash
+   dotnet restore ContainArmor.sln
+   dotnet build ContainArmor.sln
+   ```
+
+3. Run the automated test suite:
+   ```bash
+   dotnet test ContainArmor.sln --logger "console;verbosity=detailed"
+   ```
+
+4. Launch the local development server:
+   ```bash
+   dotnet run --project src/ContainArmor.Blazor --urls http://127.0.0.1:5200
+   ```
+
+---
+
+## Architecture Breakdown
+
+* `src/ContainArmor.Engine/`: Core domain logic, Docker Unix Socket client, CIS benchmark evaluator, bridge isolation auditor, iptables netfilter auditor, and remediation service.
 * `src/ContainArmor.Api/`: ASP.NET Core Minimal API with SignalR real-time event broadcasting hub.
 * `src/ContainArmor.Blazor/`: Tactical cyber SOC dashboard with real-time SignalR live streaming and visual network topology SVG.
 * `tests/ContainArmor.Tests/`: Unit test suite covering container security inspection, intra-bridge privilege asymmetry, iptables rule audits, and remediation pipelines.
@@ -45,9 +49,9 @@ dotnet run --project src/ContainArmor.Blazor --urls http://127.0.0.1:5200
 
 ---
 
-## 🛡️ Coding Guidelines
+## Engineering Standards
 
-1. **Security-First Defensive Code**: Always handle potential null or malformed Docker daemon responses without crashing the background daemon.
-2. **Deterministic CIS Benchmark Mappings**: Explicitly map new container inspection rules to official CIS Docker Benchmark IDs (e.g., `CIS-5.1`, `CIS-5.31`).
-3. **No External Bloat**: Avoid third-party Docker daemon wrappers. The project relies on native `SocketsHttpHandler` Unix Domain Sockets for lightweight, non-privileged, high-performance IPC.
-4. **Comprehensive Test Coverage**: Any new inspection rule or netfilter parser feature must include corresponding xUnit unit tests in `tests/ContainArmor.Tests/`.
+1. **Defensive Programming**: All parsing logic interfacing with the Docker daemon or netfilter subsystem must handle null, empty, or malformed data structures gracefully without process termination.
+2. **Deterministic Security IDs**: Any new audit check must map directly to an established industry benchmark (CIS Docker Benchmark v1.6.0, MITRE ATT&CK for Containers, or NIST SP 800-190).
+3. **No External Wrapper Dependencies**: Interfacing with `/var/run/docker.sock` must remain native using `SocketsHttpHandler` Unix Domain Sockets for lightweight, non-privileged, high-performance IPC.
+4. **Test Verification**: All functional modifications or bug fixes must include corresponding xUnit test cases in `tests/ContainArmor.Tests/`.

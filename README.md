@@ -1,64 +1,79 @@
 # ContainArmor (NetGuard-Docker)
 > **A Real-Time Docker Container Security & Intra-Bridge Network Isolation Policy Auditor**
 
-[![CI Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/namanbhatt/ContainArmor)
-[![Tests](https://img.shields.io/badge/tests-35%20passed-success.svg)](#-test-suite--quality-verification)
+[![CI Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/Namanbhatt-01/ContainArmor/actions)
+[![Tests](https://img.shields.io/badge/tests-35%20passed-success.svg)](#test-suite-and-quality-assurance)
 [![.NET 9.0](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![Docker](https://img.shields.io/badge/Docker-Engine%2024%2B-2496ED?logo=docker)](https://www.docker.com/)
 [![SignalR](https://img.shields.io/badge/SignalR-Real--Time%20Streaming-F43F5E)](https://learn.microsoft.com/aspnet/core/signalr/)
-[![CIS Benchmark](https://img.shields.io/badge/CIS%20Benchmark-Docker%20v1.6.0-10B981)](#-cis-docker-benchmark-rule-matrix)
+[![CIS Benchmark](https://img.shields.io/badge/CIS%20Benchmark-Docker%20v1.6.0-10B981)](#cis-docker-benchmark-rule-matrix)
+[![MITRE ATT&CK](https://img.shields.io/badge/MITRE%20ATT%26CK-Containers-FF6600)](https://attack.mitre.org/matrices/enterprise/cloud/container/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ---
 
-## 🛡️ Executive Summary
+## Executive Summary
 
-When Docker containers run on shared bridge networks (`docker0` or user-defined bridges), **micro-segmentation failures, capability misconfigurations (`CAP_NET_ADMIN`, `privileged`), leaked iptables rules, and insecure mounted sockets (`/var/run/docker.sock`)** frequently go unnoticed.
+When Docker containers execute on shared bridge networks (`docker0` or user-defined bridges), **micro-segmentation failures, capability misconfigurations (`CAP_NET_ADMIN`, `privileged`), leaked iptables rules, and insecure mounted sockets (`/var/run/docker.sock`)** frequently go unnoticed.
 
-By default, Docker bridges operate with Inter-Container Communication enabled (`com.docker.network.bridge.enable_icc = true`), permitting any container to transmit layer-2/layer-3 traffic to any peer on the same bridge. An attacker who compromises a single edge microservice can exploit this **privilege asymmetry** to sniff plaintext traffic, poison ARP tables, and reach unauthenticated internal payment vaults or databases.
+By default, Docker bridge networks operate with Inter-Container Communication enabled (`com.docker.network.bridge.enable_icc = true`), permitting any container to transmit layer-2/layer-3 traffic to any peer on the same bridge. An attacker who compromises a single edge microservice can exploit this **privilege asymmetry** to sniff plaintext traffic, poison ARP tables, and reach unauthenticated internal payment vaults or databases.
 
 **ContainArmor** is a real-time security operations platform that audits runtime isolation breaches, inspects host netfilter/iptables rules, and visualizes live security telemetry on a Blazor dark-mode tactical SOC dashboard with automated one-click remediation.
 
 ---
 
-## 🖥️ Platform Visual Walkthrough
+## Technical Specifications
+
+| Parameter | Specification | Details |
+|---|---|---|
+| Runtime Engine | .NET 9.0 / C# 13 | High-performance asynchronous pipeline with zero external Docker API dependencies |
+| Transport Mechanism | Native Unix Domain Sockets | Direct HTTP/1.1 communication over `/var/run/docker.sock` via `SocketsHttpHandler` |
+| Real-Time Streaming | ASP.NET Core SignalR | Sub-second push notifications over WebSockets with automatic fallback |
+| Frontend Dashboard | Blazor Server | Cyber SOC dark theme, reactive state lifecycle, and interactive SVG topology |
+| Compliance Standard | CIS Docker Benchmark v1.6.0 | Evaluates rules 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.12, and 5.31 |
+| Firewall Hook | Linux Netfilter (iptables) | Audits `DOCKER-USER`, `FORWARD`, and `DOCKER-ISOLATION` chains |
+| Remediation Controls | Atomic Container Actions | Automated network disconnection, SIGSTOP pause, and netfilter drop injection |
+
+---
+
+## User Interface and Visual Verification
 
 ### 1. Security Operations Center (SOC) Dashboard
-*Live fleet security posture, circular health score ring, active intra-bridge breaches, and real-time SignalR event feed.*
+Live fleet security posture, circular health score ring, active intra-bridge breaches, and real-time SignalR event feed.
 
 ![ContainArmor SOC Dashboard](assets/screenshots/soc-dashboard.png)
 
 ---
 
-### 2. Intra-Bridge Isolation Matrix & Packet Flow Topology
-*Interactive SVG topology diagram visualizing bridge routers, pod endpoints, privilege asymmetry vectors, and 2D connectivity matrix.*
+### 2. Intra-Bridge Isolation Matrix and Packet Flow Topology
+Interactive SVG topology diagram visualizing bridge routers, pod endpoints, privilege asymmetry vectors, and 2D connectivity matrix.
 
 ![ContainArmor Network Topology](assets/screenshots/network-topology.png)
 
 ---
 
-### 3. Container Security & CIS Benchmark Auditor
-*Deep runtime inspection of Linux capabilities, socket bind mounts, host namespaces, and one-click container quarantine controls.*
+### 3. Container Security and CIS Benchmark Auditor
+Deep runtime inspection of Linux capabilities, socket bind mounts, host namespaces, and one-click container quarantine controls.
 
 ![ContainArmor Container Audits](assets/screenshots/container-audits.png)
 
 ---
 
-### 4. Host Netfilter & IPTables Rule Auditor
-*Inspection of the kernel's `DOCKER-USER` and `FORWARD` chains, detection of promiscuous bridge accepts, and targeted drop rule injection.*
+### 4. Host Netfilter and IPTables Rule Auditor
+Inspection of the kernel's `DOCKER-USER` and `FORWARD` chains, detection of promiscuous bridge accepts, and targeted drop rule injection.
 
 ![ContainArmor Firewall Audit](assets/screenshots/firewall-audit.png)
 
 ---
 
 ### 5. Threat Simulation Lab (Viva Evaluation Center)
-*Interactive evaluation lab to trigger real-world container breakout vectors, ARP sniffing pulses, and verify automated defense responses.*
+Interactive evaluation lab to trigger real-world container breakout vectors, ARP sniffing pulses, and verify automated defense responses.
 
 ![ContainArmor Threat Simulation Lab](assets/screenshots/threat-simulation.png)
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
 ```mermaid
 flowchart TD
@@ -103,7 +118,7 @@ flowchart TD
 
 ---
 
-## 🚨 Threat Model & Audited Vectors
+## Threat Model and Attack Vectors
 
 ### 1. Intra-Bridge Lateral Traversal (The Default ICC Trap)
 * **Vulnerability**: Docker's default bridge configuration enables ICC (`com.docker.network.bridge.enable_icc = true`).
@@ -122,14 +137,27 @@ flowchart TD
   allowing unhindered cross-container communications.
 * **ContainArmor Detection**: Flags missing drop rules, alerts on promiscuous accepts, and provides automated one-click drop rule injection.
 
-### 3. Docker Socket Hijacking & Host Escape
+### 3. Docker Socket Hijacking and Host Escape
 * **Vulnerability**: Bind-mounting `/var/run/docker.sock` into application containers.
 * **Threat**: Processes inside the container can command the host Docker API to deploy root-level containers mounting the host root filesystem (`docker run -v /:/host alpine chroot /host`).
 * **ContainArmor Detection**: Evaluates container mounts against **CIS Benchmark 5.31**, marks the container as `CRITICAL` (score 100), and broadcasts real-time SignalR alerts.
 
 ---
 
-## 📋 CIS Docker Benchmark Rule Matrix
+## MITRE ATT&CK for Containers Matrix Mapping
+
+| MITRE ATT&CK ID | Technique Name | Tactic | ContainArmor Audit Mechanism |
+|---|---|---|---|
+| **T1611** | Escape to Host | Privilege Escalation | Audits `--privileged` flag, sensitive mount points (`/proc`, `/sys`, `/etc`), and `/var/run/docker.sock`. |
+| **T1610** | Deploy Container | Execution | Inspects Docker socket mounts and identifies unauthorized container launch primitives. |
+| **T1046** | Network Service Discovery | Discovery | Flags unsegmented bridge networks allowing unrestricted port scanning across container boundaries. |
+| **T1040** | Network Sniffing | Credential Access | Detects `CAP_NET_ADMIN` and `CAP_NET_RAW` capabilities on shared bridges without ICC restriction. |
+| **T1053** | Scheduled Task / Job | Persistence | Identifies writable root filesystems (`--read-only` missing) where attackers persist execution payloads. |
+| **T1055** | Process Injection | Privilege Escalation | Inspects `CAP_SYS_PTRACE` and flags shared process namespaces (`--pid=host`). |
+
+---
+
+## CIS Docker Benchmark Rule Matrix
 
 | Rule ID | CIS Benchmark v1.6.0 Rule | Severity | Real-World Threat Impact | ContainArmor Mitigation |
 |---|---|:---:|---|---|
@@ -144,12 +172,12 @@ flowchart TD
 
 ---
 
-## ⚡ Quickstart Guide
+## Quickstart Guide
 
 ### Option 1: Run with Docker Compose (Recommended)
 ```bash
 # Clone the repository
-git clone https://github.com/namanbhatt/ContainArmor.git
+git clone https://github.com/Namanbhatt-01/ContainArmor.git
 cd ContainArmor
 
 # Build and start ContainArmor with the host Docker socket mounted
@@ -171,7 +199,7 @@ dotnet run --project src/ContainArmor.Blazor --urls http://127.0.0.1:5200
 
 ---
 
-## 🧪 Live Threat Demonstration Fleet
+## Live Threat Demonstration Fleet
 
 ContainArmor includes an automated vulnerable container test lab under `tests/vulnerable-containers/` to simulate real-world attacks:
 
@@ -198,7 +226,7 @@ This deploys 4 targeted workloads:
 
 ---
 
-## 🧪 Test Suite & Quality Verification
+## Test Suite and Quality Assurance
 
 All unit tests are executed using **xUnit** and verify container security scoring, intra-bridge asymmetry detection, netfilter parsing, and automated remediation pipelines:
 
@@ -206,7 +234,7 @@ All unit tests are executed using **xUnit** and verify container security scorin
 dotnet test ContainArmor.sln --logger "console;verbosity=detailed"
 ```
 
-### Automated Test Results (35 Passed, 0 Failed):
+### Automated Test Coverage (35 Passed, 0 Failed):
 * **`ContainerSecurityInspectorTests`** (15 tests): CIS 5.1 Privileged mode, CIS 5.31 Socket mounting, CIS 5.2 Dangerous capabilities, CIS 5.5-5.7 Host namespaces, CIS 5.4 Root user formats (`0`, `0:0`, `root`), CIS 5.3 Sensitive mounts (`/proc`, `/sys`, `/etc`), AppArmor / Seccomp opts, and null-safety.
 * **`BridgeIsolationAuditorTests`** (5 tests): Intra-bridge privilege asymmetry, ICC enable/disable flags, multi-container matrix (3+ containers), non-bridge driver filtering (`host`, `null`, `overlay`), empty bridge handling, and interface fallback rules for stopped containers.
 * **`IptablesAuditorTests`** (3 tests): `DOCKER-USER` chain gap detection, `FORWARD` promiscuous `-i docker0 -o docker0 -j ACCEPT` leak detection, and breach cross-referencing with targeted DROP rule generation.
@@ -215,7 +243,7 @@ dotnet test ContainArmor.sln --logger "console;verbosity=detailed"
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```text
 ContainArmor/
@@ -251,6 +279,6 @@ ContainArmor/
 
 ---
 
-## 📜 License
+## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).

@@ -6,6 +6,7 @@ COPY ContainArmor.sln .
 COPY src/ContainArmor.Engine/ContainArmor.Engine.csproj src/ContainArmor.Engine/
 COPY src/ContainArmor.Api/ContainArmor.Api.csproj src/ContainArmor.Api/
 COPY src/ContainArmor.Blazor/ContainArmor.Blazor.csproj src/ContainArmor.Blazor/
+COPY tests/ContainArmor.Tests/ContainArmor.Tests.csproj tests/ContainArmor.Tests/
 
 RUN dotnet restore ContainArmor.sln
 
