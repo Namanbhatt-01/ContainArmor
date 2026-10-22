@@ -262,7 +262,7 @@ public class ContainerSecurityInspectorTests
             HostConfig = null,
             Config = null,
             State = null,
-            Mounts = null,
+            Mounts = null!,
             NetworkSettings = null
         };
 
